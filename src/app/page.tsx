@@ -2,11 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { ArrowRight, Loader2, Send, Globe, Link2 } from "lucide-react";
+import { ArrowRight, Loader2, Send, Globe, Link2, XCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
@@ -23,14 +22,12 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom whenever messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleStart = async () => {
     if (!url.trim()) return;
-
     setIsLoading(true);
     try {
       const response = await fetch(
@@ -39,11 +36,9 @@ export default function ChatInterface() {
       const data = await response.json();
       setContext(data.context);
       setStarted(true);
-
-      // Add a welcome message
       setMessages([
         {
-          text: `I've analyzed the content from ${url}. What would you like to know about it?`,
+          text: `I've analyzed the content from [${url}](${url}). What would you like to know about it?`,
           fromUser: false,
         },
       ]);
@@ -62,12 +57,10 @@ export default function ChatInterface() {
 
   const handleSendQuery = async () => {
     if (!query.trim() || isLoading) return;
-
     const userMessage = { text: query, fromUser: true };
     setMessages((prev) => [...prev, userMessage]);
     setQuery("");
     setIsLoading(true);
-
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const prompt = `
@@ -81,15 +74,9 @@ ${query}
 - Respond in Markdown format.
 - Keep the response concise.
 `;
-
       const result = await model.generateContent([prompt]);
       const text = result.response.text();
-
-      // Add a small delay to make the response feel more natural
-      // setTimeout(() => {
       setMessages((prev) => [...prev, { text, fromUser: false }]);
-      setIsLoading(false);
-      // }, 500);
     } catch (error) {
       console.error("Gemini error:", error);
       setMessages((prev) => [
@@ -99,8 +86,18 @@ ${query}
           fromUser: false,
         },
       ]);
+    } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleClear = () => {
+    setUrl("");
+    setContext("");
+    setMessages([]);
+    setQuery("");
+    setStarted(false);
+    setIsLoading(false);
   };
 
   return (
@@ -146,9 +143,8 @@ ${query}
         </div>
       ) : (
         <div className="flex flex-col max-w-3xl w-full mx-auto h-[90vh] border border-gray-200 rounded-xl overflow-hidden">
-          {/* Header */}
-          <div className="p-4 border-b border-gray-100">
-            <div className="text-sm font-medium text-gray-900 flex items-center justify-center gap-1 truncate">
+          <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+            <div className="px-2 text-sm font-medium text-gray-900 flex items-center gap-1 truncate">
               <span>You are connected to:</span>
               <a
                 href={url}
@@ -160,9 +156,16 @@ ${query}
               </a>
               <Link2 className="text-blue-600 translate-y-0.5" size={15} />
             </div>
+            <Button
+              variant="ghost"
+              onClick={handleClear}
+              className="text-red-500 hover:text-red-700 text-sm px-2 border border-dashed border-red-100"
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              Clear Chat
+            </Button>
           </div>
 
-          {/* Chat messages - scrollable */}
           <div
             ref={chatContainerRef}
             className="flex-1 overflow-y-auto p-4 space-y-4"
@@ -214,14 +217,32 @@ ${query}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input field - always at bottom */}
           <div className="p-4 border-t border-gray-100">
+            <div className="mb-4">
+              {/* <div className="text-xs text-gray-400 mb-1">Try asking:</div> */}
+              <div className="flex flex-wrap gap-2 w-full">
+                {[
+                  "Give me a summary of this page",
+                  "What is this page about?",
+                  "List key points from this content",
+                ].map((sample, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setQuery(sample)}
+                    className="bg-blue-50 hover:bg-blue-100 text-blue-700 px-4 py-1.5 rounded-2xl text-xs transition-all border border-blue-100 flex-1"
+                  >
+                    {sample}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="flex gap-2 items-center">
               <Input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Give me a summary of this website"
+                placeholder="Ask something about this page..."
                 className="flex-1 py-6 text-base border-gray-200 focus:ring-2 focus:ring-blue-100 transition-all"
                 onKeyDown={(e) =>
                   e.key === "Enter" && !e.shiftKey && handleSendQuery()
