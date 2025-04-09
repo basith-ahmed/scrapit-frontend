@@ -1,5 +1,3 @@
-// app/api/fetch-context/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -13,9 +11,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const fetchFrom = `http://34.100.177.80/context?url=${encodeURIComponent(
-    url
-  )}`;
+  const fetchFrom = `${process.env.BACKEND_URL}/context?url=${encodeURIComponent(url)}`;
 
   try {
     const response = await fetch(fetchFrom);

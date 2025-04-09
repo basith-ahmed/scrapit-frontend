@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ArrowRight, Loader2, Send, Globe, Link2, XCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY!);
 
 export default function ChatInterface() {
   const [url, setUrl] = useState("");
@@ -21,9 +19,11 @@ export default function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    inputRef.current?.focus();
   }, [messages]);
 
   const handleStart = async () => {
@@ -55,6 +55,21 @@ export default function ChatInterface() {
     }
   };
 
+  async function fetchGeneratedContent(context: string, query: string) {
+    const response = await fetch("/api/generate-content", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ context, query }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch generated content");
+    }
+
+    const data = await response.json();
+    return data.text;
+  }
+
   const handleSendQuery = async () => {
     if (!query.trim() || isLoading) return;
     const userMessage = { text: query, fromUser: true };
@@ -62,20 +77,7 @@ export default function ChatInterface() {
     setQuery("");
     setIsLoading(true);
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      const prompt = `
-### Context:
-${context}
-
-### User Query:
-${query}
-
-### Instructions:
-- Respond in Markdown format.
-- Keep the response concise.
-`;
-      const result = await model.generateContent([prompt]);
-      const text = result.response.text();
+      const text = await fetchGeneratedContent(context, query);
       setMessages((prev) => [...prev, { text, fromUser: false }]);
     } catch (error) {
       console.error("Gemini error:", error);
@@ -87,6 +89,7 @@ ${query}
         },
       ]);
     } finally {
+      inputRef.current?.focus();
       setIsLoading(false);
     }
   };
@@ -241,12 +244,16 @@ ${query}
               <Input
                 type="text"
                 value={query}
+                ref={inputRef}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Ask something about this page..."
                 className="flex-1 py-6 text-base border-gray-200 focus:ring-2 focus:ring-blue-100 transition-all"
-                onKeyDown={(e) =>
-                  e.key === "Enter" && !e.shiftKey && handleSendQuery()
-                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendQuery();
+                  }
+                }}
                 disabled={isLoading}
               />
               <Button
