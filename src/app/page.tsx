@@ -31,7 +31,7 @@ export default function ChatInterface() {
     setIsLoading(true);
     try {
       const response = await fetch(
-        `/api/fetch-context?url=${encodeURIComponent(url)}`
+        `/api/fetch-context?url=${encodeURIComponent(url)}&compress=true`
       );
       const data = await response.json();
       setContext(data.context);
